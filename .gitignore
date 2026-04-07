@@ -1,0 +1,45 @@
+# Secrets - never commit these
+k8s/base/secret.yaml
+k8s/secret.yaml
+secret.yaml
+
+# Terraform state files
+**/.terraform/
+*.tfstate
+*.tfstate.*
+terraform/*.tfstate.backup
+*.tfvars.json
+
+# Terraform variables with sensitive data
+terraform/terraform.tfvars
+
+# Minikube binary
+minikube-linux-amd64
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Node
+node_modules/
+.env
+kubeseal
+kubeseal-0.24.0-linux-amd64.tar.gz
+minikube-linux-amd64
+
+# OS
+.DS_Store
+
+
+# Logs
+*.log
+
+# AWS credentials
+.aws/
+aws-credentials
+credentials
+
+# Terraform crash logs
+crash.log
+crash.*.log
