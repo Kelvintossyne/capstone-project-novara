@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: taskapp-postgres
+    environment:
+      POSTGRES_USER: taskapp_user
+      POSTGRES_PASSWORD: taskapp_password
+      POSTGRES_DB: taskapp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./taskapp_backend
+    container_name: taskapp-backend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: taskapp
+      DATABASE_USER: taskapp_user
+      DATABASE_PASSWORD: taskapp_password
+
+  frontend:
+    build: ./taskapp_frontend
+    container_name: taskapp-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
