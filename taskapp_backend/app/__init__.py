@@ -9,24 +9,24 @@ db = SQLAlchemy()
 def create_app():
     app = Flask(__name__)
 
-    # Get database connection details from environment
-    db_host = os.getenv('DATABASE_HOST')
+    # Environment variables
+    db_host = os.getenv('DATABASE_HOST', 'postgres')
     db_port = os.getenv('DATABASE_PORT', '5432')
-    db_name = os.getenv('DATABASE_NAME')
-    db_user = os.getenv('DATABASE_USER')
-    db_password = os.getenv('DATABASE_PASSWORD')
+    db_name = os.getenv('DATABASE_NAME', 'taskapp')
+    db_user = os.getenv('DATABASE_USER', 'taskapp_user')
+    db_password = os.getenv('DATABASE_PASSWORD', 'taskapp_password')
 
-    if db_host and db_user and db_name and db_password:
-        encoded_password = quote_plus(db_password)
-        database_uri = (
-            f"postgresql://{db_user}:{encoded_password}@{db_host}:{db_port}/{db_name}"
-        )
-    else:
-        database_uri = 'postgresql://taskapp_user:taskapp_password@localhost:5432/taskapp'
+    encoded_password = quote_plus(db_password)
+
+    database_uri = (
+        f"postgresql://{db_user}:{encoded_password}@{db_host}:{db_port}/{db_name}"
+    )
+
+    print("Connecting to DB at:", db_host)
 
     app.config['SQLALCHEMY_DATABASE_URI'] = database_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 
     db.init_app(app)
     CORS(app)
