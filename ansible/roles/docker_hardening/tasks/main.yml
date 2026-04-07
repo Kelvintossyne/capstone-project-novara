@@ -1,0 +1,164 @@
+---
+- name: Detect Docker
+  command: which docker
+  register: docker_installed
+  changed_when: false
+  failed_when: false
+
+- name: Detect containerd
+  command: which containerd
+  register: containerd_installed
+  changed_when: false
+  failed_when: false
+
+- name: Create /etc/docker
+  file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: docker_installed.rc == 0
+
+- name: Merge docker config with role overrides
+  set_fact:
+    merged_docker_config: >-
+      {{ docker_daemon_config | combine(docker_daemon_config_overrides | default({}), recursive=True) }}
+  when: docker_installed.rc == 0
+
+- name: Write /etc/docker/daemon.json
+  copy:
+    content: "{{ merged_docker_config | to_nice_json }}"
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  when: docker_installed.rc == 0
+  notify: Restart Docker
+
+- name: Create Docker systemd drop-in dir
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    mode: "0755"
+  when: docker_installed.rc == 0
+
+- name: Set systemd resource limits for Docker
+  copy:
+    dest: /etc/systemd/system/docker.service.d/limits.conf
+    mode: "0644"
+    content: |
+      [Service]
+      LimitNOFILE=1048576
+      LimitNPROC=infinity
+      LimitCORE=infinity
+      OOMScoreAdjust=-500
+      Restart=always
+      RestartSec=5
+  when: docker_installed.rc == 0
+  notify:
+    - Reload systemd
+    - Restart Docker
+
+- name: Create containerd config dir
+  file:
+    path: "{{ containerd_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: containerd_installed.rc == 0
+
+- name: Generate default containerd config
+  command: containerd config default
+  register: containerd_default
+  changed_when: false
+  when: containerd_installed.rc == 0
+
+- name: Write containerd config.toml (first time only)
+  copy:
+    content: "{{ containerd_default.stdout }}"
+    dest: "{{ containerd_config_dir }}/config.toml"
+    owner: root
+    group: root
+    mode: "0644"
+    force: false
+  when: containerd_installed.rc == 0
+
+- name: Set containerd cgroup driver to systemd
+  replace:
+    path: "{{ containerd_config_dir }}/config.toml"
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+  when: containerd_installed.rc == 0
+  notify: Restart containerd
+
+- name: Pin containerd pause image
+  replace:
+    path: "{{ containerd_config_dir }}/config.toml"
+    regexp: 'sandbox_image = ".*"'
+    replace: 'sandbox_image = "registry.k8s.io/pause:3.9"'
+  when: containerd_installed.rc == 0
+  notify: Restart containerd
+
+- name: Create containerd systemd limits drop-in
+  file:
+    path: /etc/systemd/system/containerd.service.d
+    state: directory
+    mode: "0755"
+  when: containerd_installed.rc == 0
+
+- name: Write containerd limits
+  copy:
+    dest: /etc/systemd/system/containerd.service.d/limits.conf
+    mode: "0644"
+    content: |
+      [Service]
+      LimitNOFILE=1048576
+      LimitNPROC=infinity
+      LimitCORE=infinity
+      OOMScoreAdjust=-999
+      Restart=always
+      RestartSec=5
+  when: containerd_installed.rc == 0
+  notify:
+    - Reload systemd
+    - Restart containerd
+
+- name: Load required kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - overlay
+    - br_netfilter
+    - ip_vs
+    - ip_vs_rr
+    - ip_vs_wrr
+    - ip_vs_sh
+    - nf_conntrack
+
+- name: Persist kernel modules
+  copy:
+    dest: /etc/modules-load.d/k8s.conf
+    mode: "0644"
+    content: |
+      overlay
+      br_netfilter
+      ip_vs
+      ip_vs_rr
+      ip_vs_wrr
+      ip_vs_sh
+      nf_conntrack
+
+- name: Assert systemd cgroup driver
+  block:
+    - command: docker info --format '{{ "{{" }}.CgroupDriver{{ "}}" }}'
+      register: docker_cgroup
+      changed_when: false
+    - assert:
+        that: docker_cgroup.stdout == "systemd"
+        fail_msg: "Docker cgroup driver must be systemd!"
+  when: docker_installed.rc == 0
+  tags: verify

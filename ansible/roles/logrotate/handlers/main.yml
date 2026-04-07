@@ -1,0 +1,9 @@
+---
+- name: Force logrotate
+  command: logrotate -f /etc/logrotate.conf
+  changed_when: false
+
+- name: Restart journald
+  systemd:
+    name: systemd-journald
+    state: restarted

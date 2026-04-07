@@ -1,0 +1,31 @@
+---
+plugin: amazon.aws.aws_ec2
+
+regions:
+  - us-east-1
+
+filters:
+  tag:kubernetes.io/cluster/taskapp.yourdomain.com: owned
+  instance-state-name: running
+
+keyed_groups:
+  - key: tags['kops.k8s.io/instancegroup']
+    prefix: ig
+    separator: "_"
+  - key: tags['kubernetes.io/role']
+    prefix: role
+    separator: "_"
+
+groups:
+  masters: "'master' in (tags.get('kubernetes.io/role', ''))"
+  workers: "'node'   in (tags.get('kubernetes.io/role', ''))"
+
+compose:
+  ansible_host: private_ip_address
+
+hostfile_vars:
+  ansible_user: ubuntu
+  ansible_ssh_private_key_file: ~/.ssh/kops-key
+  ansible_ssh_common_args: >-
+    -o StrictHostKeyChecking=no
+    -o ProxyJump=ubuntu@bastion.taskapp.yourdomain.com

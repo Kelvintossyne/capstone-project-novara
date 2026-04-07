@@ -1,0 +1,83 @@
+---
+cluster_name: "taskapp.yourdomain.com"
+aws_region:   "us-east-1"
+
+ansible_user: ubuntu
+ansible_ssh_private_key_file: ~/.ssh/kops-key
+ansible_python_interpreter: /usr/bin/python3
+
+allowed_ssh_users:
+  - ubuntu
+
+sysctl_hardening_params:
+  net.ipv4.conf.all.accept_redirects:        0
+  net.ipv4.conf.default.accept_redirects:    0
+  net.ipv4.conf.all.secure_redirects:        0
+  net.ipv4.conf.all.send_redirects:          0
+  net.ipv4.conf.default.send_redirects:      0
+  net.ipv4.conf.all.accept_source_route:     0
+  net.ipv4.conf.default.accept_source_route: 0
+  net.ipv4.tcp_syncookies:                   1
+  net.ipv4.icmp_echo_ignore_broadcasts:      1
+  net.ipv4.icmp_ignore_bogus_error_responses: 1
+  net.ipv4.conf.all.rp_filter:               1
+  net.ipv4.conf.default.rp_filter:           1
+  kernel.randomize_va_space: 2
+  kernel.dmesg_restrict:     1
+  kernel.kptr_restrict:      2
+  fs.protected_hardlinks:    1
+  fs.protected_symlinks:     1
+  fs.suid_dumpable:          0
+
+chrony_servers:
+  - "169.254.169.123 prefer iburst"
+  - "0.pool.ntp.org iburst"
+  - "1.pool.ntp.org iburst"
+chrony_makestep:  "1.0 3"
+chrony_rtcsync:   true
+chrony_driftfile: "/var/lib/chrony/drift"
+
+logrotate_configs:
+  - name: containers
+    path: "/var/log/containers/*.log"
+    rotate: 7
+    size: "100M"
+    compress: true
+    missingok: true
+    notifempty: true
+    copytruncate: true
+  - name: kubernetes
+    path: "/var/log/kubernetes/*.log"
+    rotate: 14
+    size: "50M"
+    compress: true
+    missingok: true
+    notifempty: true
+  - name: kops
+    path: "/var/log/kops/*.log"
+    rotate: 30
+    size: "20M"
+    compress: true
+    missingok: true
+    notifempty: true
+
+docker_daemon_config:
+  log-driver: "json-file"
+  log-opts:
+    max-size: "100m"
+    max-file: "5"
+  storage-driver: "overlay2"
+  exec-opts:
+    - "native.cgroupdriver=systemd"
+  live-restore:   true
+  userland-proxy: false
+  metrics-addr:   "0.0.0.0:9323"
+  experimental:   false
+  default-ulimits:
+    nofile:
+      Name: nofile
+      Hard: 65536
+      Soft: 65536
+
+docker_daemon_config_overrides: {}
+containerd_config_dir: /etc/containerd

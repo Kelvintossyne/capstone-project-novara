@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sealed-secrets
+
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: sealed-secrets
+  namespace: sealed-secrets
+spec:
+  repo: https://bitnami-labs.github.io/sealed-secrets
+  chart: sealed-secrets
+  version: "2.13.0"
+  targetNamespace: sealed-secrets

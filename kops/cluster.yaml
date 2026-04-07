@@ -1,0 +1,121 @@
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  name: taskapp.k8s.local
+spec:
+  api:
+    loadBalancer:
+      type: Public
+  authorization:
+    rbac: {}
+  channel: stable
+  cloudProvider: aws
+  configBase: s3://novara-kops-state-production/taskapp.k8s.local
+  kubernetesVersion: "1.28.0"
+  masterPublicName: api.taskapp.k8s.local
+  networkCIDR: 10.0.0.0/16
+  networking:
+    calico: {}
+  nonMasqueradeCIDR: 100.64.0.0/10
+
+  # Private topology - nodes have no public IPs
+  topology:
+    dns:
+      type: Public
+    masters: private
+    nodes: private
+
+  # 3 public + 3 private subnets across 3 AZs
+  subnets:
+    - cidr: 10.0.1.0/24
+      name: us-east-1a-public
+      type: Public
+      zone: us-east-1a
+    - cidr: 10.0.2.0/24
+      name: us-east-1b-public
+      type: Public
+      zone: us-east-1b
+    - cidr: 10.0.3.0/24
+      name: us-east-1c-public
+      type: Public
+      zone: us-east-1c
+    - cidr: 10.0.10.0/24
+      name: us-east-1a-private
+      type: Private
+      zone: us-east-1a
+      egress: nat-us-east-1a
+    - cidr: 10.0.11.0/24
+      name: us-east-1b-private
+      type: Private
+      zone: us-east-1b
+      egress: nat-us-east-1b
+    - cidr: 10.0.12.0/24
+      name: us-east-1c-private
+      type: Private
+      zone: us-east-1c
+      egress: nat-us-east-1c
+
+  # etcd clusters with automated backups
+  etcdClusters:
+    - name: main
+      enableEtcdTLS: true
+      enableTLSAuth: true
+      etcdMembers:
+        - instanceGroup: master-us-east-1a
+          name: a
+        - instanceGroup: master-us-east-1b
+          name: b
+        - instanceGroup: master-us-east-1c
+          name: c
+      backups:
+        backupStore: s3://novara-etcd-backups-production/taskapp.k8s.local
+    - name: events
+      enableEtcdTLS: true
+      enableTLSAuth: true
+      etcdMembers:
+        - instanceGroup: master-us-east-1a
+          name: a
+        - instanceGroup: master-us-east-1b
+          name: b
+        - instanceGroup: master-us-east-1c
+          name: c
+      backups:
+        backupStore: s3://novara-etcd-backups-production/taskapp.k8s.local
+
+  # EBS CSI driver for persistent volumes
+  cloudConfig:
+    awsEBSCSIDriver:
+      enabled: true
+      version: v1.24.0
+
+  # Cluster autoscaler
+  clusterAutoscaler:
+    enabled: true
+    skipNodesWithLocalStorage: false
+    skipNodesWithSystemPods: true
+
+  # IAM configuration
+  iam:
+    allowContainerRegistry: true
+    legacy: false
+
+---
+# Master node in AZ 1
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: master-us-east-1a
+  labels:
+    kops.k8s.io/cluster: taskapp.k8s.local
+spec:
+  image: ubuntu/images/hvm-ssd/ubuntu-22.04-amd64-server-*
+  machineType: t3.medium
+  maxSize: 1
+  minSize: 1
+  role: Master
+  subnets:
+    - us-east-1a-private
+
+---
+# Master node in AZ 2
+apiVersion: kops.k8s.io

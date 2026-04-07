@@ -1,0 +1,9 @@
+---
+- name: Restart sshd
+  systemd:
+    name: sshd
+    state: restarted
+
+- name: Reload sysctl
+  command: sysctl --system
+  changed_when: false

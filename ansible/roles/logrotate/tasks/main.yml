@@ -1,0 +1,102 @@
+---
+- name: Install logrotate and rsyslog
+  apt:
+    name:
+      - logrotate
+      - rsyslog
+    state: present
+
+- name: Ensure log directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /var/log/containers
+    - /var/log/kubernetes
+    - /var/log/kops
+    - /var/log/chrony
+
+- name: Deploy logrotate configs from group_vars
+  template:
+    src: logrotate.j2
+    dest: "/etc/logrotate.d/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ logrotate_configs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Force logrotate
+
+- name: Deploy containerd log rotation
+  copy:
+    dest: /etc/logrotate.d/containerd
+    mode: "0644"
+    content: |
+      /var/log/containerd.log {
+          daily
+          rotate 7
+          size 100M
+          compress
+          delaycompress
+          missingok
+          notifempty
+          copytruncate
+          su root root
+      }
+
+- name: Configure global logrotate defaults
+  copy:
+    dest: /etc/logrotate.conf
+    mode: "0644"
+    content: |
+      weekly
+      rotate 4
+      create
+      dateext
+      compress
+      include /etc/logrotate.d
+      /var/log/wtmp {
+          monthly
+          create 0664 root utmp
+          minsize 1M
+          rotate 1
+      }
+      /var/log/btmp {
+          missingok
+          monthly
+          create 0600 root utmp
+          rotate 1
+      }
+
+- name: Add hourly cron for logrotate
+  copy:
+    dest: /etc/cron.hourly/logrotate
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      /usr/sbin/logrotate /etc/logrotate.conf --state /var/lib/logrotate/status
+
+- name: Cap systemd journal size
+  lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: "^#?{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    state: present
+  loop:
+    - { key: SystemMaxUse,    value: "2G"   }
+    - { key: SystemKeepFree,  value: "1G"   }
+    - { key: MaxFileSec,      value: "7day" }
+    - { key: Compress,        value: "yes"  }
+    - { key: ForwardToSyslog, value: "yes"  }
+  notify: Restart journald
+
+- name: Verify logrotate config syntax
+  command: logrotate --debug /etc/logrotate.conf
+  register: lr_debug
+  changed_when: false
+  failed_when: lr_debug.rc != 0
+  tags: verify

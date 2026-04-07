@@ -1,0 +1,29 @@
+# logrotate config: {{ item.name }} — managed by Ansible
+{{ item.path }} {
+    daily
+    rotate {{ item.rotate }}
+{% if item.size is defined %}
+    size {{ item.size }}
+{% endif %}
+{% if item.compress %}
+    compress
+    delaycompress
+{% endif %}
+{% if item.missingok %}
+    missingok
+{% endif %}
+{% if item.notifempty %}
+    notifempty
+{% endif %}
+{% if item.copytruncate | default(false) %}
+    copytruncate
+{% endif %}
+{% if item.postrotate is defined %}
+    postrotate
+        {{ item.postrotate }}
+    endscript
+{% endif %}
+    su root root
+    dateext
+    dateformat -%Y%m%d-%H%M%S
+}

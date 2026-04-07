@@ -1,0 +1,6 @@
+---
+- name: Restart chrony
+  systemd:
+    name: chrony
+    state: restarted
+    daemon_reload: true

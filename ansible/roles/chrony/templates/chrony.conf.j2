@@ -1,0 +1,24 @@
+# /etc/chrony/chrony.conf — managed by Ansible on {{ inventory_hostname }}
+
+{% for server in chrony_servers %}
+server {{ server }}
+{% endfor %}
+
+makestep {{ chrony_makestep }}
+{% if chrony_rtcsync %}rtcsync{% endif %}
+
+driftfile {{ chrony_driftfile }}
+
+logdir /var/log/chrony
+log tracking measurements statistics
+
+deny all
+
+leapsecmode slew
+maxslewrate 1000
+smoothtime 400 0.001 leaponly
+
+minpoll 6
+maxpoll 10
+maxsources 4
+minsources 1

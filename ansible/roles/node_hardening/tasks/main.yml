@@ -1,0 +1,146 @@
+---
+- name: Disable swap immediately
+  command: swapoff -a
+  changed_when: false
+
+- name: Remove swap from /etc/fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*?\sswap\s+sw\s+.*)$'
+    replace: '# \1   # Disabled by Ansible — k8s requires no swap'
+
+- name: Assert swap is off
+  command: swapon --show
+  register: swap_check
+  changed_when: false
+  failed_when: swap_check.stdout != ""
+  tags: verify
+
+- name: Apply common hardening sysctl params
+  ansible.posix.sysctl:
+    name:        "{{ item.key }}"
+    value:       "{{ item.value }}"
+    state:       present
+    reload:      true
+    sysctl_file: /etc/sysctl.d/99-k8s-hardening.conf
+  loop: "{{ sysctl_hardening_params | dict2items }}"
+
+- name: Apply master sysctl (etcd tuning)
+  ansible.posix.sysctl:
+    name:        "{{ item.key }}"
+    value:       "{{ item.value }}"
+    state:       present
+    reload:      true
+    sysctl_file: /etc/sysctl.d/99-k8s-hardening.conf
+  loop: "{{ etcd_sysctl_params | default({}) | dict2items }}"
+  when: "'masters' in group_names"
+
+- name: Apply worker sysctl (container density tuning)
+  ansible.posix.sysctl:
+    name:        "{{ item.key }}"
+    value:       "{{ item.value }}"
+    state:       present
+    reload:      true
+    sysctl_file: /etc/sysctl.d/99-k8s-hardening.conf
+  loop: "{{ worker_sysctl_params | default({}) | dict2items }}"
+  when: "'workers' in group_names"
+
+- name: Enable IP forwarding and bridge-nf (mandatory for k8s)
+  ansible.posix.sysctl:
+    name:        "{{ item.key }}"
+    value:       "{{ item.value }}"
+    state:       present
+    reload:      true
+    sysctl_file: /etc/sysctl.d/98-k8s-networking.conf
+  loop:
+    - { key: net.bridge.bridge-nf-call-iptables,  value: "1" }
+    - { key: net.bridge.bridge-nf-call-ip6tables, value: "1" }
+    - { key: net.ipv4.ip_forward,                 value: "1" }
+
+- name: Deploy SSH hardening drop-in
+  copy:
+    dest: /etc/ssh/sshd_config.d/99-hardening.conf
+    mode: "0600"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      ChallengeResponseAuthentication no
+      PubkeyAuthentication yes
+      AuthenticationMethods publickey
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+      LoginGraceTime 60
+      MaxAuthTries 3
+      MaxSessions 10
+      AllowUsers {{ allowed_ssh_users | join(' ') }}
+      AllowAgentForwarding no
+      AllowTcpForwarding no
+      X11Forwarding no
+      PermitTunnel no
+      GatewayPorts no
+      Protocol 2
+      Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
+      MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+      KexAlgorithms curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+      Banner /etc/issue.net
+      PrintMotd no
+      LogLevel VERBOSE
+  notify: Restart sshd
+
+- name: Write SSH warning banner
+  copy:
+    dest: /etc/issue.net
+    mode: "0644"
+    content: |
+      ######################################################
+      #  AUTHORISED ACCESS ONLY — Activity is monitored   #
+      #  Disconnect immediately if not an authorised user  #
+      ######################################################
+
+- name: Mount /tmp with nodev,nosuid,noexec
+  ansible.posix.mount:
+    name:   /tmp
+    src:    tmpfs
+    fstype: tmpfs
+    opts:   defaults,nodev,nosuid,noexec,size=2g
+    state:  mounted
+
+- name: Mount /dev/shm with nodev,nosuid,noexec
+  ansible.posix.mount:
+    name:   /dev/shm
+    src:    tmpfs
+    fstype: tmpfs
+    opts:   defaults,nodev,nosuid,noexec
+    state:  mounted
+
+- name: Set system-wide file descriptor limits
+  copy:
+    dest: /etc/security/limits.d/99-kubernetes.conf
+    mode: "0644"
+    content: |
+      *    soft nofile 1048576
+      *    hard nofile 1048576
+      *    soft nproc  unlimited
+      *    hard nproc  unlimited
+      root soft nofile 1048576
+      root hard nofile 1048576
+
+- name: Ensure PAM applies limits
+  lineinfile:
+    path:  /etc/pam.d/common-session
+    line:  "session required pam_limits.so"
+    state: present
+
+- name: Assert IP forwarding is active
+  command: sysctl net.ipv4.ip_forward
+  register: ipfwd
+  changed_when: false
+  failed_when: "'= 1' not in ipfwd.stdout"
+  tags: verify
+
+- name: Assert bridge-nf-call-iptables is active
+  command: sysctl net.bridge.bridge-nf-call-iptables
+  register: bridgenf
+  changed_when: false
+  failed_when: "'= 1' not in bridgenf.stdout"
+  tags: verify

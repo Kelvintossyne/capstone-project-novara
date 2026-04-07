@@ -1,0 +1,57 @@
+---
+- name: Remove conflicting NTP services
+  apt:
+    name:
+      - ntp
+      - ntpdate
+      - systemd-timesyncd
+    state: absent
+    purge: true
+
+- name: Install chrony
+  apt:
+    name: chrony
+    state: present
+    update_cache: true
+
+- name: Deploy chrony configuration
+  template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Restart chrony
+
+- name: Enable and start chrony
+  systemd:
+    name: chrony
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Force initial clock step
+  command: chronyc makestep
+  changed_when: false
+
+- name: Set timezone to UTC
+  community.general.timezone:
+    name: UTC
+  notify: Restart chrony
+
+- name: Sync hardware clock
+  command: hwclock --systohc --utc
+  changed_when: false
+  ignore_errors: true
+
+- name: Verify chrony is synchronised
+  command: chronyc tracking
+  register: chrony_tracking
+  changed_when: false
+  tags: verify
+
+- name: Show tracking output
+  debug:
+    var: chrony_tracking.stdout_lines
+  tags: verify

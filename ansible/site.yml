@@ -1,0 +1,59 @@
+---
+- name: Baseline hardening — all nodes
+  hosts: all
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: false
+
+  pre_tasks:
+    - name: Verify connectivity
+      ping:
+      tags: always
+
+    - name: Print node identity
+      debug:
+        msg: "Hardening {{ inventory_hostname }} (role={{ node_role | default('unknown') }})"
+      tags: always
+
+  roles:
+    - role: common
+      tags: [common, packages, hardening]
+    - role: chrony
+      tags: [chrony, time]
+    - role: logrotate
+      tags: [logrotate, logs]
+    - role: docker_hardening
+      tags: [docker, container-runtime]
+    - role: node_hardening
+      tags: [hardening, security, sysctl, swap]
+
+  post_tasks:
+    - name: Verify critical services are running
+      systemd:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - chrony
+        - rsyslog
+      tags: verify
+
+- name: Master-specific hardening
+  hosts: masters
+  become: true
+  gather_facts: true
+  serial: 1
+
+  roles:
+    - role: etcd_hardening
+      tags: [etcd, masters, backup]
+
+- name: Worker optimisation
+  hosts: workers
+  become: true
+  gather_facts: true
+  serial: "33%"
+
+  roles:
+    - role: worker_optimisation
+      tags: [workers, optimisation]
