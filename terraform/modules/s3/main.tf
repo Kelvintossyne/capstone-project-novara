@@ -1,4 +1,3 @@
-# ─── Kops State Bucket ───────────────────────────────────────────────────────
 resource "aws_s3_bucket" "kops_state" {
   bucket        = "${var.project_name}-kops-state-${var.environment}"
   force_destroy = false
@@ -37,7 +36,6 @@ resource "aws_s3_bucket_public_access_block" "kops_state" {
   restrict_public_buckets = true
 }
 
-# ─── Terraform State Bucket ──────────────────────────────────────────────────
 resource "aws_s3_bucket" "terraform_state" {
   bucket        = "${var.project_name}-terraform-state-${var.environment}"
   force_destroy = false
@@ -121,6 +119,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "etcd_backups" {
   rule {
     id     = "expire-old-backups"
     status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
 
     expiration {
       days = 30

@@ -1,0 +1,136 @@
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  name: k8s.deploywithme.xyz
+spec:
+  api:
+    loadBalancer:
+      class: Network
+      type: Public
+  authorization:
+    rbac: {}
+  channel: stable
+  cloudProvider: aws
+  configBase: s3://novara-kops-state-store/k8s.deploywithme.xyz
+  etcdClusters:
+  - cpuRequest: 200m
+    etcdMembers:
+    - encryptedVolume: true
+      instanceGroup: control-plane-us-east-1a
+      name: a
+    manager:
+      backupRetentionDays: 90
+    memoryRequest: 100Mi
+    name: main
+  - cpuRequest: 100m
+    etcdMembers:
+    - encryptedVolume: true
+      instanceGroup: control-plane-us-east-1a
+      name: a
+    manager:
+      backupRetentionDays: 90
+    memoryRequest: 100Mi
+    name: events
+  iam:
+    allowContainerRegistry: true
+    legacy: false
+  kubeProxy:
+    enabled: false
+  kubelet:
+    anonymousAuth: false
+  kubernetesApiAccess:
+  - 0.0.0.0/0
+  - ::/0
+  kubernetesVersion: 1.35.3
+  networkCIDR: 172.20.0.0/16
+  networking:
+    cilium:
+      enableNodePort: true
+  nonMasqueradeCIDR: 100.64.0.0/10
+  sshAccess:
+  - 0.0.0.0/0
+  - ::/0
+  subnets:
+  - cidr: 172.20.0.0/18
+    name: us-east-1a
+    type: Public
+    zone: us-east-1a
+  - cidr: 172.20.64.0/18
+    name: us-east-1b
+    type: Public
+    zone: us-east-1b
+  - cidr: 172.20.128.0/18
+    name: us-east-1c
+    type: Public
+    zone: us-east-1c
+  topology:
+    dns:
+      type: None
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: k8s.deploywithme.xyz
+  name: control-plane-us-east-1a
+spec:
+  image: 099720109477/ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20260218
+  machineType: t3.medium
+  maxSize: 1
+  minSize: 1
+  role: Master
+  subnets:
+  - us-east-1a
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: k8s.deploywithme.xyz
+  name: nodes-us-east-1a
+spec:
+  image: 099720109477/ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20260218
+  machineType: t3.medium
+  maxSize: 1
+  minSize: 1
+  role: Node
+  subnets:
+  - us-east-1a
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: k8s.deploywithme.xyz
+  name: nodes-us-east-1b
+spec:
+  image: 099720109477/ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20260218
+  machineType: t3.medium
+  maxSize: 1
+  minSize: 1
+  role: Node
+  subnets:
+  - us-east-1b
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: k8s.deploywithme.xyz
+  name: nodes-us-east-1c
+spec:
+  image: 099720109477/ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20260218
+  machineType: t3.medium
+  maxSize: 1
+  minSize: 1
+  role: Node
+  subnets:
+  - us-east-1c

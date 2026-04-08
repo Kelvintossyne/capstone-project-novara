@@ -9,11 +9,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "novara-terraform-state"
-    key            = "capstone/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "novara-terraform-locks"
-    encrypt        = true
+    bucket       = "novara-tfstate-745914010393"
+    key          = "capstone/terraform.tfstate"
+    region       = "us-east-1"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 

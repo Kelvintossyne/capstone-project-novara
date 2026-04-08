@@ -14,8 +14,17 @@ output "nat_gateway_ids" {
   value = aws_nat_gateway.main[*].id
 }
 
+output "nat_gateway_public_ips" {
+  description = "Public IPs of NAT gateways — whitelist on external services"
+  value       = aws_eip.nat[*].public_ip
+}
+
 output "nodes_security_group_id" {
   value = aws_security_group.nodes.id
+}
+
+output "masters_security_group_id" {
+  value = aws_security_group.masters.id
 }
 
 output "availability_zones" {
