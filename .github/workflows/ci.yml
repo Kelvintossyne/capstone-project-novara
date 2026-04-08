@@ -1,4 +1,3 @@
-kelvintossyne@Kelvintossyne:~/capstone-project-novara$ cat .github/workflows/*.yml
 name: CI Pipeline
 
 on:
