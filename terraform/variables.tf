@@ -52,8 +52,3 @@ variable "vpc_cidr" {
   }
 }
 
-variable "load_balancer_dns" {
-  description = "DNS name of the load balancer"
-  type        = string
-  default     = "example.com"
-}
