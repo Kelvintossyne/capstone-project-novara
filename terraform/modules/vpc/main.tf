@@ -171,7 +171,7 @@ resource "aws_security_group" "nodes" {
   }
 
   egress {
-    description = "All outbound traffic"  #tfsec:ignore:aws-ec2-no-public-egress-sgr
+    description = "All outbound traffic" #tfsec:ignore:aws-ec2-no-public-egress-sgr
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
