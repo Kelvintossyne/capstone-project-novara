@@ -10,7 +10,6 @@ jobs:
   terraform:
     name: Terraform Checks
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,16 +24,31 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        working-directory: terraform
+
       - name: Terraform Init
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=novara-tfstate-745914010393" \
+            -backend-config="key=capstone/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -reconfigure
         working-directory: terraform
 
       - name: Terraform Validate
         run: terraform validate
         working-directory: terraform
 
-      - name: Run tflint
+      - name: Setup tflint
         uses: terraform-linters/setup-tflint@v3
+
+      - name: Run tflint
+        run: |
+          tflint --init
+          tflint --recursive
+        working-directory: terraform
 
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.0
@@ -44,21 +58,27 @@ jobs:
   kubernetes:
     name: Kubernetes Checks
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
       - name: Validate Kubernetes manifests
         run: |
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
-          chmod +x kubectl
-          ./kubectl apply --dry-run=client --validate=false -f k8s/base/
+          if [ -d "k8s/base" ] && [ "$(ls -A k8s/base)" ]; then
+            kubectl apply --dry-run=client --validate=false -f k8s/base/
+          else
+            echo "No manifests found yet — skipping"
+          fi
 
   ansible:
     name: Ansible Checks
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -67,4 +87,9 @@ jobs:
         run: pip install ansible ansible-lint
 
       - name: Run ansible-lint
-        run: ansible-lint ansible/
+        run: |
+          if [ -d "ansible" ] && [ "$(ls -A ansible)" ]; then
+            ansible-lint ansible/
+          else
+            echo "No ansible files found yet — skipping"
+          fi
