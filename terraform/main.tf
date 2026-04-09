@@ -40,10 +40,8 @@ module "s3" {
 }
 
 module "dns" {
-  source       = "./modules/dns"
-  project_name = var.project_name
-  domain_name  = var.domain_name
-  environment  = var.environment
+  source      = "./modules/dns"
+  domain_name = var.domain_name
 }
 
 resource "aws_dynamodb_table" "terraform_locks" {
