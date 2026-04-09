@@ -1,20 +1,20 @@
 ---
 - name: Update apt cache
-  apt:
+  ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
 
 - name: Apply all security patches
-  apt:
+  ansible.builtin.apt:
     upgrade: dist
     dpkg_options: "force-confnew,force-confdef"
-  register: apt_upgrade
+  register: common_apt_upgrade
   retries: 3
   delay: 10
-  until: apt_upgrade is succeeded
+  until: common_apt_upgrade is succeeded
 
 - name: Install essential packages
-  apt:
+  ansible.builtin.apt:
     name:
       - auditd
       - audispd-plugins
@@ -38,7 +38,7 @@
     state: present
 
 - name: Disable unnecessary services
-  systemd:
+  ansible.builtin.systemd:
     name: "{{ item }}"
     state: stopped
     enabled: false
@@ -52,10 +52,10 @@
     - apache2
     - smbd
     - snmpd
-  ignore_errors: true
+  failed_when: false
 
 - name: Enable required services
-  systemd:
+  ansible.builtin.systemd:
     name: "{{ item }}"
     state: started
     enabled: true
@@ -65,8 +65,8 @@
     - rsyslog
     - unattended-upgrades
 
-- name: Configure unattended-upgrades (security only, no auto-reboot)
-  copy:
+- name: Configure unattended-upgrades
+  ansible.builtin.copy:
     dest: /etc/apt/apt.conf.d/50unattended-upgrades
     mode: "0644"
     content: |
@@ -83,23 +83,23 @@
   notify: Restart unattended-upgrades
 
 - name: Set permissions on sensitive files
-  file:
+  ansible.builtin.file:
     path: "{{ item.path }}"
     mode: "{{ item.mode }}"
     owner: root
     group: root
   loop:
-    - { path: /etc/cron.d,     mode: "0700" }
-    - { path: /etc/cron.daily, mode: "0700" }
-    - { path: /etc/crontab,    mode: "0600" }
-    - { path: /boot,           mode: "0700" }
-    - { path: /etc/passwd,     mode: "0644" }
-    - { path: /etc/shadow,     mode: "0640" }
-    - { path: /etc/group,      mode: "0644" }
-    - { path: /etc/gshadow,    mode: "0640" }
+    - {path: /etc/cron.d, mode: "0700"}
+    - {path: /etc/cron.daily, mode: "0700"}
+    - {path: /etc/crontab, mode: "0600"}
+    - {path: /boot, mode: "0700"}
+    - {path: /etc/passwd, mode: "0644"}
+    - {path: /etc/shadow, mode: "0640"}
+    - {path: /etc/group, mode: "0644"}
+    - {path: /etc/gshadow, mode: "0640"}
 
 - name: Disable core dumps
-  copy:
+  ansible.builtin.copy:
     dest: /etc/security/limits.d/10-no-coredumps.conf
     mode: "0644"
     content: |
@@ -107,7 +107,7 @@
       * hard core 0
 
 - name: Deploy auditd rules
-  copy:
+  ansible.builtin.copy:
     dest: /etc/audit/rules.d/99-kubernetes.rules
     mode: "0640"
     content: |
@@ -117,46 +117,45 @@
       -w /bin/su -p x -k priv_esc
       -w /usr/bin/sudo -p x -k priv_esc
       -w /etc/sudoers -p wa -k sudoers
-      -w /etc/passwd  -p wa -k passwd_changes
-      -w /etc/shadow  -p wa -k shadow_changes
+      -w /etc/passwd -p wa -k passwd_changes
+      -w /etc/shadow -p wa -k shadow_changes
       -w /etc/ssh/sshd_config -p wa -k sshd_config
-      -w /etc/kubernetes/  -p wa -k kubernetes_config
+      -w /etc/kubernetes/ -p wa -k kubernetes_config
       -w /var/lib/kubelet/ -p wa -k kubelet_data
-      -w /etc/docker/      -p wa -k docker_config
-      -w /etc/containerd/  -p wa -k containerd_config
+      -w /etc/docker/ -p wa -k docker_config
+      -w /etc/containerd/ -p wa -k containerd_config
       -a always,exit -F arch=b64 -S setuid -S setgid -k setuid_setgid
       -a always,exit -F arch=b64 -S execve -k exec
       -e 2
   notify: Restart auditd
 
 - name: Configure fail2ban for SSH
-  copy:
+  ansible.builtin.copy:
     dest: /etc/fail2ban/jail.local
     mode: "0644"
     content: |
       [DEFAULT]
-      bantime  = 3600
+      bantime = 3600
       findtime = 600
       maxretry = 5
-      backend  = systemd
-
+      backend = systemd
       [sshd]
-      enabled  = true
-      port     = ssh
-      logpath  = %(sshd_log)s
+      enabled = true
+      port = ssh
+      logpath = %(sshd_log)s
       maxretry = 3
-      bantime  = 86400
+      bantime = 86400
   notify: Restart fail2ban
 
 - name: Check if reboot is required
-  stat:
+  ansible.builtin.stat:
     path: /var/run/reboot-required
-  register: reboot_required
+  register: common_reboot_required
 
 - name: Warn if reboot needed
-  debug:
+  ansible.builtin.debug:
     msg: >
       NODE {{ inventory_hostname }} needs a reboot for kernel updates.
       Drain first: kubectl drain {{ inventory_hostname }} --ignore-daemonsets --delete-emptydir-data
       Then reboot, then: kubectl uncordon {{ inventory_hostname }}
-  when: reboot_required.stat.exists
+  when: common_reboot_required.stat.exists
