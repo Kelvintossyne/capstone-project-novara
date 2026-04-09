@@ -1,13 +1,13 @@
 ---
 - name: Install logrotate and rsyslog
-  apt:
+  ansible.builtin.apt:
     name:
       - logrotate
       - rsyslog
     state: present
 
 - name: Ensure log directories exist
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: root
@@ -20,7 +20,7 @@
     - /var/log/chrony
 
 - name: Deploy logrotate configs from group_vars
-  template:
+  ansible.builtin.template:
     src: logrotate.j2
     dest: "/etc/logrotate.d/{{ item.name }}"
     owner: root
@@ -32,7 +32,7 @@
   notify: Force logrotate
 
 - name: Deploy containerd log rotation
-  copy:
+  ansible.builtin.copy:
     dest: /etc/logrotate.d/containerd
     mode: "0644"
     content: |
@@ -49,7 +49,7 @@
       }
 
 - name: Configure global logrotate defaults
-  copy:
+  ansible.builtin.copy:
     dest: /etc/logrotate.conf
     mode: "0644"
     content: |
@@ -73,7 +73,7 @@
       }
 
 - name: Add hourly cron for logrotate
-  copy:
+  ansible.builtin.copy:
     dest: /etc/cron.hourly/logrotate
     mode: "0755"
     content: |
@@ -81,22 +81,22 @@
       /usr/sbin/logrotate /etc/logrotate.conf --state /var/lib/logrotate/status
 
 - name: Cap systemd journal size
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/systemd/journald.conf
     regexp: "^#?{{ item.key }}="
     line: "{{ item.key }}={{ item.value }}"
     state: present
   loop:
-    - { key: SystemMaxUse,    value: "2G"   }
-    - { key: SystemKeepFree,  value: "1G"   }
-    - { key: MaxFileSec,      value: "7day" }
-    - { key: Compress,        value: "yes"  }
-    - { key: ForwardToSyslog, value: "yes"  }
+    - {key: SystemMaxUse, value: "2G"}
+    - {key: SystemKeepFree, value: "1G"}
+    - {key: MaxFileSec, value: "7day"}
+    - {key: Compress, value: "yes"}
+    - {key: ForwardToSyslog, value: "yes"}
   notify: Restart journald
 
 - name: Verify logrotate config syntax
-  command: logrotate --debug /etc/logrotate.conf
-  register: lr_debug
+  ansible.builtin.command: logrotate --debug /etc/logrotate.conf
+  register: logrotate_lr_debug
   changed_when: false
-  failed_when: lr_debug.rc != 0
+  failed_when: logrotate_lr_debug.rc != 0
   tags: verify

@@ -1,26 +1,26 @@
 ---
 - name: Apply worker sysctl tuning
   ansible.posix.sysctl:
-    name:        "{{ item.key }}"
-    value:       "{{ item.value }}"
-    state:       present
-    reload:      true
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
     sysctl_file: /etc/sysctl.d/96-worker-tuning.conf
   loop: "{{ worker_sysctl_params | default({}) | dict2items }}"
 
-- name: Pre-pull pause image (faster pod startup)
-  command: ctr images pull registry.k8s.io/pause:3.9
-  ignore_errors: true
+- name: Pre-pull pause image for faster pod startup
+  ansible.builtin.command: ctr images pull registry.k8s.io/pause:3.9
+  failed_when: false
   changed_when: false
 
 - name: Create kubelet systemd drop-in dir
-  file:
-    path:  /etc/systemd/system/kubelet.service.d
+  ansible.builtin.file:
+    path: /etc/systemd/system/kubelet.service.d
     state: directory
-    mode:  "0755"
+    mode: "0755"
 
 - name: Configure kubelet for worker performance
-  copy:
+  ansible.builtin.copy:
     dest: /etc/systemd/system/kubelet.service.d/20-worker-opts.conf
     mode: "0644"
     content: |

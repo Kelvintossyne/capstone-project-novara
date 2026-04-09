@@ -62,20 +62,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install kubectl
+      - name: Install kubeconform
         run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/kubectl
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
 
       - name: Validate Kubernetes manifests
         run: |
           if [ -d "k8s/base" ] && [ "$(ls -A k8s/base)" ]; then
-            kubectl apply --dry-run=client --validate=false -f k8s/base/
+            kubeconform -strict -ignore-missing-schemas k8s/base/*.yaml
           else
             echo "No manifests found yet — skipping"
           fi
-
   ansible:
     name: Ansible Checks
     runs-on: ubuntu-latest

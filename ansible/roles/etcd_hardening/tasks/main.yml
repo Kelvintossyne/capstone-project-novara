@@ -1,18 +1,18 @@
 ---
 - name: Secure etcd data directory
-  file:
-    path:  /var/lib/etcd
+  ansible.builtin.file:
+    path: /var/lib/etcd
     owner: root
     group: root
-    mode:  "0700"
+    mode: "0700"
     state: directory
 
 - name: Set strict permissions on etcd TLS certs
-  file:
-    path:  "{{ item }}"
+  ansible.builtin.file:
+    path: "{{ item }}"
     owner: root
     group: root
-    mode:  "0600"
+    mode: "0600"
   loop:
     - /etc/kubernetes/pki/etcd/ca.crt
     - /etc/kubernetes/pki/etcd/ca.key
@@ -20,59 +20,51 @@
     - /etc/kubernetes/pki/etcd/server.key
     - /etc/kubernetes/pki/etcd/peer.crt
     - /etc/kubernetes/pki/etcd/peer.key
-  ignore_errors: true
+  failed_when: false
 
 - name: Deploy etcd backup script
-  copy:
-    dest:  /usr/local/bin/etcd-backup.sh
-    mode:  "0750"
+  ansible.builtin.copy:
+    dest: /usr/local/bin/etcd-backup.sh
+    mode: "0750"
     owner: root
     group: root
     content: |
       #!/bin/bash
       set -euo pipefail
-
       CLUSTER="{{ cluster_name }}"
       BUCKET="{{ etcd_backup_s3_bucket }}"
       REGION="{{ aws_region }}"
       TIMESTAMP=$(date +%Y%m%d-%H%M%S)
       TMP_DIR="/tmp/etcd-backup-${TIMESTAMP}"
       SNAP="${TMP_DIR}/etcd-snapshot-${TIMESTAMP}.db"
-
       ETCD_ENDPOINT="https://127.0.0.1:4001"
       CACERT="/etc/kubernetes/pki/etcd/ca.crt"
       CERT="/etc/kubernetes/pki/etcd/server.crt"
       KEY="/etc/kubernetes/pki/etcd/server.key"
-
       echo "[$(date -u +%FT%TZ)] Starting etcd backup for ${CLUSTER}"
       mkdir -p "${TMP_DIR}"
-
       ETCDCTL_API=3 etcdctl \
         --endpoints="${ETCD_ENDPOINT}" \
         --cacert="${CACERT}" --cert="${CERT}" --key="${KEY}" \
         snapshot save "${SNAP}"
-
       ETCDCTL_API=3 etcdctl snapshot status "${SNAP}" --write-out=table
-
       aws s3 cp "${SNAP}" \
         "s3://${BUCKET}/snapshots/${TIMESTAMP}/etcd-snapshot-${TIMESTAMP}.db" \
         --sse aws:kms --region "${REGION}"
-
       rm -rf "${TMP_DIR}"
-
       echo "[$(date -u +%FT%TZ)] Backup complete."
 
-- name: Schedule etcd backup cron (every 6 hours)
-  cron:
-    name:   "etcd-backup"
+- name: Schedule etcd backup cron every 6 hours
+  ansible.builtin.cron:
+    name: "etcd-backup"
     minute: "0"
-    hour:   "*/6"
-    job:    "/usr/local/bin/etcd-backup.sh >> /var/log/etcd-backup.log 2>&1"
-    user:   root
-    state:  present
+    hour: "*/6"
+    job: "/usr/local/bin/etcd-backup.sh >> /var/log/etcd-backup.log 2>&1"
+    user: root
+    state: present
 
 - name: Logrotate for etcd backup log
-  copy:
+  ansible.builtin.copy:
     dest: /etc/logrotate.d/etcd-backup
     mode: "0644"
     content: |
@@ -87,9 +79,9 @@
 
 - name: Apply etcd performance sysctl
   ansible.posix.sysctl:
-    name:        "{{ item.key }}"
-    value:       "{{ item.value }}"
-    state:       present
-    reload:      true
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
     sysctl_file: /etc/sysctl.d/97-etcd.conf
   loop: "{{ etcd_sysctl_params | default({}) | dict2items }}"

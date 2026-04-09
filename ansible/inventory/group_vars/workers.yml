@@ -1,15 +1,13 @@
 ---
 node_role: worker
-
 docker_daemon_config_overrides:
   log-opts:
     max-size: "100m"
     max-file: "5"
-
 worker_sysctl_params:
-  vm.swappiness:                 0
+  vm.swappiness: 0
   fs.inotify.max_user_instances: 8192
-  fs.inotify.max_user_watches:   1048576
-  net.core.somaxconn:            32768
-  net.ipv4.tcp_max_syn_backlog:  16384
-  kernel.pid_max:                4194304
+  fs.inotify.max_user_watches: 1048576
+  net.core.somaxconn: 32768
+  net.ipv4.tcp_max_syn_backlog: 16384
+  kernel.pid_max: 4194304
