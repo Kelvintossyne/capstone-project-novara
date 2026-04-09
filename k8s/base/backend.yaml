@@ -23,8 +23,8 @@ spec:
         fsGroup: 2000
       containers:
         - name: backend
-          image: taskapp-backend:1.0.0
-          imagePullPolicy: Never
+          image: kelvintossyne/taskapp-backend:1.0.0
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
           securityContext:

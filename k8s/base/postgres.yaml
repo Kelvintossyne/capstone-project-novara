@@ -34,7 +34,7 @@ spec:
               command:
                 - pg_isready
                 - -U
-                - taskapp_user
+                - taskapp
                 - -d
                 - taskapp
             initialDelaySeconds: 30
@@ -44,7 +44,7 @@ spec:
               command:
                 - pg_isready
                 - -U
-                - taskapp_user
+                - taskapp
                 - -d
                 - taskapp
             initialDelaySeconds: 10
@@ -52,6 +52,7 @@ spec:
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+              subPath: pgdata
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
