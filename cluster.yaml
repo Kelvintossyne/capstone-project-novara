@@ -11,13 +11,20 @@ spec:
     rbac: {}
   channel: stable
   cloudProvider: aws
-  configBase: s3://novara-kops-state-store/k8s.deploywithme.xyz
+  configBase: s3://novara-kops-state-production/k8s.deploywithme.xyz
+  dnsZone: Z0635472JB9HTR5BRWIR
   etcdClusters:
   - cpuRequest: 200m
     etcdMembers:
     - encryptedVolume: true
       instanceGroup: control-plane-us-east-1a
       name: a
+    - encryptedVolume: true
+      instanceGroup: control-plane-us-east-1b
+      name: b
+    - encryptedVolume: true
+      instanceGroup: control-plane-us-east-1c
+      name: c
     manager:
       backupRetentionDays: 90
     memoryRequest: 100Mi
@@ -27,6 +34,12 @@ spec:
     - encryptedVolume: true
       instanceGroup: control-plane-us-east-1a
       name: a
+    - encryptedVolume: true
+      instanceGroup: control-plane-us-east-1b
+      name: b
+    - encryptedVolume: true
+      instanceGroup: control-plane-us-east-1c
+      name: c
     manager:
       backupRetentionDays: 90
     memoryRequest: 100Mi
@@ -34,41 +47,54 @@ spec:
   iam:
     allowContainerRegistry: true
     legacy: false
-  kubeProxy:
-    enabled: false
   kubelet:
     anonymousAuth: false
   kubernetesApiAccess:
   - 0.0.0.0/0
   - ::/0
-  kubernetesVersion: 1.35.3
-  networkCIDR: 172.20.0.0/16
+  kubernetesVersion: 1.28.0
+  networkCIDR: 10.0.0.0/16
+  networkID: vpc-00a927d9838acaa1d
   networking:
-    cilium:
-      enableNodePort: true
+    calico: {}
   nonMasqueradeCIDR: 100.64.0.0/10
   sshAccess:
   - 0.0.0.0/0
   - ::/0
   subnets:
-  - cidr: 172.20.0.0/18
+  - id: subnet-0297277c4a8d61321
     name: us-east-1a
-    type: Public
+    type: Private
     zone: us-east-1a
-  - cidr: 172.20.64.0/18
+    egress: nat-049f86ecedf164306
+  - id: subnet-08060c23cc8ccba18
     name: us-east-1b
-    type: Public
+    type: Private
     zone: us-east-1b
-  - cidr: 172.20.128.0/18
+    egress: nat-0957d467f232e3889
+  - id: subnet-02d5decbe09198b1a
     name: us-east-1c
-    type: Public
+    type: Private
+    zone: us-east-1c
+    egress: nat-0c7a98e82452d02e1
+  - id: subnet-0d842139591dd97f9
+    name: utility-us-east-1a
+    type: Utility
+    zone: us-east-1a
+  - id: subnet-0b362eaf8cdd5b63f
+    name: utility-us-east-1b
+    type: Utility
+    zone: us-east-1b
+  - id: subnet-015c045f6747b9956
+    name: utility-us-east-1c
+    type: Utility
     zone: us-east-1c
   topology:
+    masters: private
+    nodes: private
     dns:
-      type: None
-
+      type: Public
 ---
-
 apiVersion: kops.k8s.io/v1alpha2
 kind: InstanceGroup
 metadata:
@@ -76,16 +102,44 @@ metadata:
     kops.k8s.io/cluster: k8s.deploywithme.xyz
   name: control-plane-us-east-1a
 spec:
-  image: 099720109477/ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20260218
+  image: ami-05e86b3611c60b0b4
   machineType: t3.medium
   maxSize: 1
   minSize: 1
   role: Master
   subnets:
   - us-east-1a
-
 ---
-
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: k8s.deploywithme.xyz
+  name: control-plane-us-east-1b
+spec:
+  image: ami-05e86b3611c60b0b4
+  machineType: t3.medium
+  maxSize: 1
+  minSize: 1
+  role: Master
+  subnets:
+  - us-east-1b
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: k8s.deploywithme.xyz
+  name: control-plane-us-east-1c
+spec:
+  image: ami-05e86b3611c60b0b4
+  machineType: t3.medium
+  maxSize: 1
+  minSize: 1
+  role: Master
+  subnets:
+  - us-east-1c
+---
 apiVersion: kops.k8s.io/v1alpha2
 kind: InstanceGroup
 metadata:
@@ -93,16 +147,14 @@ metadata:
     kops.k8s.io/cluster: k8s.deploywithme.xyz
   name: nodes-us-east-1a
 spec:
-  image: 099720109477/ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20260218
+  image: ami-05e86b3611c60b0b4
   machineType: t3.medium
   maxSize: 1
   minSize: 1
   role: Node
   subnets:
   - us-east-1a
-
 ---
-
 apiVersion: kops.k8s.io/v1alpha2
 kind: InstanceGroup
 metadata:
@@ -110,16 +162,14 @@ metadata:
     kops.k8s.io/cluster: k8s.deploywithme.xyz
   name: nodes-us-east-1b
 spec:
-  image: 099720109477/ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20260218
+  image: ami-05e86b3611c60b0b4
   machineType: t3.medium
   maxSize: 1
   minSize: 1
   role: Node
   subnets:
   - us-east-1b
-
 ---
-
 apiVersion: kops.k8s.io/v1alpha2
 kind: InstanceGroup
 metadata:
@@ -127,7 +177,7 @@ metadata:
     kops.k8s.io/cluster: k8s.deploywithme.xyz
   name: nodes-us-east-1c
 spec:
-  image: 099720109477/ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20260218
+  image: ami-05e86b3611c60b0b4
   machineType: t3.medium
   maxSize: 1
   minSize: 1

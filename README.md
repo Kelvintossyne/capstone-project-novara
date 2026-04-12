@@ -12,12 +12,12 @@ highly available Kubernetes cluster on AWS.
 ## Architecture at a Glance
 
 Internet → Route53 → ELB → NGINX Ingress (SSL) → Frontend / Backend → PostgreSQL (EBS)
-↑
-Private subnets, 3 AZs
-3 masters + 3 workers (Kops)
+                                                        ↑
+                                              Private subnets, 3 AZs
+                                              3 masters + 3 workers (Kops)
 
 - **Infrastructure:** Terraform (VPC, IAM, DNS, S3) + Kops (Kubernetes cluster)
-- **Kubernetes Version:** v1.31.0
+- **Kubernetes Version:** v1.28.0
 - **Networking:** Private topology, 3 NAT Gateways (one per AZ), no public node IPs
 - **SSL:** cert-manager + Let's Encrypt (auto-renewing)
 - **Secrets:** Bitnami Sealed Secrets (encrypted at rest, safe to commit)
@@ -40,6 +40,7 @@ capstone-project-novara/
 │   ├── variables.tf
 │   └── outputs.tf
 ├── kops/                         # Kops cluster specifications
+│   └── cluster.yaml              # Full cluster definition
 ├── k8s/
 │   ├── base/                     # Reusable Kubernetes manifests
 │   │   ├── frontend.yaml
@@ -61,16 +62,10 @@ capstone-project-novara/
 │   ├── destroy.sh                # Teardown with database backup
 │   └── validate.sh               # Submission validation checks
 └── docs/
-├── architecture.md           # Design decisions and diagrams
-├── runbook.md                 # Operational procedures
-├── cost-analysis.md          # Monthly cost breakdown
-└── screenshots/              # Validation evidence
-├── 01-api-health-check.png
-├── 02-frontend-https.png
-├── 03-kops-validate-cluster.png
-├── 04-kubectl-get-nodes.png
-├── 05-kubectl-get-pods.png
-└── 06-kops-validate-nodes-pods-tls.png
+    ├── architecture.md           # Design decisions and diagrams
+    ├── runbook.md                 # Operational procedures
+    ├── cost-analysis.md          # Monthly cost breakdown
+    └── screenshots/              # Validation evidence
 
 ---
 
@@ -78,38 +73,29 @@ capstone-project-novara/
 
 ### Prerequisites
 
-```bash
-# Install required tools
+Install required tools:
 brew install awscli terraform kops kubectl kubeseal jq helm
-# or use the package manager for your OS
 
-# Configure AWS credentials
+Configure AWS credentials:
 aws configure
-```
 
 ### Deploy
 
-```bash
-# Full deployment (~25 minutes)
+Full deployment (~25 minutes):
 ./scripts/deploy.sh
 
-# After Terraform completes, update your domain registrar NS records
-# with the nameservers shown in the output, then press Enter to continue.
-```
+After Terraform completes, update your domain registrar NS records
+with the nameservers shown in the output, then press Enter to continue.
 
 ### Validate
 
-```bash
 ./scripts/validate.sh
-# Produces a validation report: validation-report-YYYYMMDD-HHMMSS.txt
-```
+Produces a validation report: validation-report-YYYYMMDD-HHMMSS.txt
 
 ### Destroy
 
-```bash
 ./scripts/destroy.sh
-# Takes a final database backup before destroying everything.
-```
+Takes a final database backup before destroying everything.
 
 ---
 
@@ -125,16 +111,17 @@ aws configure
 
 ## Key Design Decisions
 
-| Decision                       | Rationale                                                    |
-|--------------------------------|--------------------------------------------------------------|
-| 3 NAT Gateways (one per AZ)    | Redundant egress — no single point of failure                |
-| Private node topology          | No node has a public IP; only ELB is internet-facing         |
-| Sealed Secrets                 | Encrypted secrets safe to store in Git                       |
-| maxUnavailable: 0 rolling update | Zero-downtime deploys guaranteed                           |
-| EBS Retain reclaim policy      | Database survives pod deletion                               |
-| Separate Kops S3 bucket        | Separation of concerns from Terraform state                  |
-| 3 control plane nodes          | etcd quorum survives loss of one master                      |
-| cert-manager + Let's Encrypt   | Automated SSL with auto-renewal, no manual certificate work  |
+| Decision                         | Rationale                                                    |
+|----------------------------------|--------------------------------------------------------------|
+| 3 NAT Gateways (one per AZ)      | Redundant egress — no single point of failure                |
+| Private node topology            | No node has a public IP; only ELB is internet-facing         |
+| Sealed Secrets                   | Encrypted secrets safe to store in Git                       |
+| maxUnavailable: 0 rolling update | Zero-downtime deploys guaranteed                             |
+| EBS Retain reclaim policy        | Database survives pod deletion                               |
+| Separate Kops S3 bucket          | Separation of concerns from Terraform state                  |
+| 3 control plane nodes            | etcd quorum survives loss of one master                      |
+| cert-manager + Let's Encrypt     | Automated SSL with auto-renewal, no manual certificate work  |
+| kops 1.28 + Ubuntu 22.04         | Proven stable combination for production clusters            |
 
 ---
 
@@ -152,14 +139,18 @@ aws configure
 
 ## Validation Evidence
 
-| Check                          | Evidence                                      |
-|--------------------------------|-----------------------------------------------|
-| kops validate cluster          | docs/screenshots/03-kops-validate-cluster.png |
-| kubectl get nodes (6 Ready)    | docs/screenshots/04-kubectl-get-nodes.png     |
-| All pods Running               | docs/screenshots/05-kubectl-get-pods.png      |
-| TLS certificate Ready          | docs/screenshots/06-kops-validate-nodes-pods-tls.png |
-| Live API health check          | docs/screenshots/01-api-health-check.png      |
-| Frontend HTTPS                 | docs/screenshots/02-frontend-https.png        |
+| Check                         | Evidence                                          |
+|-------------------------------|---------------------------------------------------|
+| kops validate cluster         | docs/screenshots/01-kops-validate-cluster.png     |
+| kubectl get nodes -o wide     | docs/screenshots/02-kubectl-get-nodes-wide.png    |
+| All pods Running across AZs   | docs/screenshots/03-kubectl-get-pods-wide.png     |
+| Live API health check + HTTPS | docs/screenshots/04-api-health-check.png          |
+| TLS certificate Ready         | docs/screenshots/05-tls-certificate.png           |
+| Frontend HTTPS                | docs/screenshots/06-frontend-https.png            |
+| cert-manager running          | docs/screenshots/07-cert-manager-running.png      |
+| kops validate + nodes         | docs/screenshots/08-kops-validate-combined.png    |
+| kubectl get nodes             | docs/screenshots/09-kubectl-get-nodes.png         |
+| Pods spread across AZs        | docs/screenshots/10-pods-across-azs.png           |
 
 ---
 
