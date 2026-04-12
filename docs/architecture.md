@@ -6,7 +6,7 @@ Novara is a cloud-native task management application deployed on a production-gr
 
 - **Domain:** deploywithme.xyz
 - **Region:** us-east-1
-- **Kubernetes Version:** v1.31.0
+- **Kubernetes Version:** v1.28.0
 - **Cluster Name:** k8s.deploywithme.xyz
 
 ---
@@ -85,7 +85,7 @@ VPC Flow Logs enabled with 30-day retention in CloudWatch for network audit trai
 | Parameter           | Value                              |
 |---------------------|------------------------------------|
 | Cluster Name        | k8s.deploywithme.xyz               |
-| Kubernetes Version  | v1.31.0                            |
+| Kubernetes Version  | v1.28.0                            |
 | Provisioner         | Kops                               |
 | Topology            | Private (nodes in private subnets) |
 | Control Plane Nodes | 3 x t3.medium (one per AZ)         |
@@ -193,10 +193,10 @@ Kops cluster state is stored in a dedicated S3 bucket (novara-kops-state-product
 
 The domain deploywithme.xyz is registered at an external registrar. DNS management is delegated to AWS Route53 by pointing the registrar's nameservers to the Route53 hosted zone nameservers:
 
-- ns-75.awsdns-09.com
-- ns-1333.awsdns-38.org
-- ns-1998.awsdns-57.co.uk
-- ns-635.awsdns-15.net
+- ns-29.awsdns-03.com
+- ns-817.awsdns-38.net
+- ns-1087.awsdns-07.org
+- ns-1888.awsdns-44.co.uk
 
 Route53 manages all DNS records including the subdomain delegation for k8s.deploywithme.xyz used internally by Kops.
 
